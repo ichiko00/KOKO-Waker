@@ -1,0 +1,15 @@
+{
+  "display_name": "KOKO 唤醒器",
+  "version": "1.4.0",
+  "author": "ichiko00",
+  "js": "index.js",
+  "loading_order": 60,
+  "minimum_client_version": "1.13.2",
+  "auto_update": true,
+  "homePage": "https://github.com/ichiko00/KOKO-Waker",
+  "hooks": {
+    "enable": "enable",
+    "disable": "disable",
+    "delete": "dispose"
+  }
+}
