@@ -1,8 +1,12 @@
 {
   "name": "koko-waker",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "type": "module",
-  "scripts": {"test": "node --test test/*.test.js"},
-  "devDependencies": {"playwright": "1.65.0"}
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "playwright": "1.65.0"
+  }
 }
