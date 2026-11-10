@@ -10,8 +10,8 @@ while (index >= 0 && (c.chat[index].is_user || c.chat[index].is_system)) index--
 let raw = index >= 0 ? String(c.chat[index].mes || '') : '';
 const filterSource = streaming ? '' : raw.slice(0, 200000);
 let voiceHash=2166136261;for(const char of raw)voiceHash=Math.imul(voiceHash^char.codePointAt(0),16777619);
-let voice={available:false,phase:'idle',message:'请先在 TT 打开一次小手机',id:-1};
-try {const frame=document.querySelector('#myphone-panel iframe');if(frame&&globalThis.__myPhoneAppPanelBridge){const api=globalThis.__myPhoneAppPanelBridge.connect(frame.contentWindow),s=api.status();voice={available:true,phase:s.phase,message:String(s.message||''),id:api.currentDialogue().id};}}catch{}
+let voice={available:false,phase:'idle',message:'小手机未启用或尚未完成加载，请在 TT 启用 MyPhone',id:-1};
+try {const frame=document.querySelector('#myphone-panel iframe');if(frame&&globalThis.__myPhoneAppPanelBridge){const api=globalThis.__myPhoneAppPanelBridge.connect(frame.contentWindow),s=api.status();voice={available:true,phase:s.phase,message:String(s.message||''),id:api.currentDialogue().id};}else if(globalThis.__myPhoneAppPanelBridge&&document.querySelector('#myphone-wand-entry, #myphone-open')){voice={available:true,phase:'idle',message:'点击播放将打开小手机并开始朗读',id:-1};}}catch(e){voice.message='小手机接口未就绪：'+e.message;}
 // Do not show unfinished reasoning or execute generated HTML/scripts.
 raw = raw.replace(/<(think|thinking|analysis|blend)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '')
   .replace(/<!--[\s\S]*?(?:-->|$)/g, '');

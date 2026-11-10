@@ -6,8 +6,14 @@ if (!c) throw Error('未找到酒馆聊天接口');
 const chatId = String(c.getCurrentChatId?.() || '');
 const binding = chatId ? JSON.stringify([c.groupId ?? null,c.characterId ?? null,chatId]) : '';
 if (!binding || binding !== request.binding) throw Error('聊天已切换，请等待桌宠同步');
-const frame = document.querySelector('#myphone-panel iframe');
-if (!frame || !globalThis.__myPhoneAppPanelBridge) throw Error('请先在 TT 打开一次小手机');
+if (!globalThis.__myPhoneAppPanelBridge) throw Error('小手机未启用或尚未完成加载，请在 TT 启用 MyPhone 后重试');
+let frame = document.querySelector('#myphone-panel iframe');
+if (!frame && request.action === 'play') {
+  const opener=document.querySelector('#myphone-wand-entry, #myphone-open');
+  if(opener)opener.click();
+  frame=document.querySelector('#myphone-panel iframe');
+}
+if (!frame) throw Error('小手机面板未就绪，请在 TT 打开小手机后重试');
 const api = globalThis.__myPhoneAppPanelBridge.connect(frame.contentWindow);
 const status = api.status();
 const id = Number(request.messageId), message = c.chat?.[id];
