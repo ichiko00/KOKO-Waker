@@ -27,6 +27,10 @@ if (request.action === 'play') {
   const settings = api.getState();
   if (!settings.narration?.enabled) throw Error('请在小手机设置中开启「整篇朗读」');
   if (settings.narration.voice !== 'role') throw Error('请将小手机「整篇朗读」的旁白设为角色配音，以使用语音 API');
+  if(!(settings.narration.skip||[]).some(s=>String(s).toLowerCase()==='branches')){
+    if(!api.getSnapshot||!api.save)throw Error('请在小手机整篇朗读的跳过标签中添加 branches');
+    const snapshot=api.getSnapshot();snapshot.state.narration.skip=[...(snapshot.state.narration.skip||[]),'branches'];api.save(snapshot.state,snapshot.revision);
+  }
   api.play(id);
 } else if (request.action === 'toggle' || request.action === 'stop') {
   if (api.currentDialogue().id !== id) throw Error('小手机正在播放其他楼层，请在小手机控制');

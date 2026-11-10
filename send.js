@@ -1,3 +1,4 @@
+import {branchOptions} from './branches.js';
 export function send(request={}){
 
 const c = globalThis.SillyTavern?.getContext?.();
@@ -6,6 +7,15 @@ const id = String(c.getCurrentChatId?.() || '');
 const binding = id ? JSON.stringify([c.groupId ?? null, c.characterId ?? null, id]) : '';
 if (!binding || binding !== request.binding) throw new Error('酒馆已切换聊天，请确认新聊天后再发送');
 if (c.streamingProcessor && !c.streamingProcessor.isFinished) throw new Error('酒馆正在生成，请稍后再发');
+if(request.branch){
+ const b=request.branch,id=Number(b.messageId);let latest=(c.chat||[]).length-1;
+ while(latest>=0&&c.chat[latest].is_system)latest--;
+ if(latest!==id||!c.chat[id]||c.chat[id].is_user)throw Error('剧情选项已过期，请等待最新正文');
+ const raw=String(c.chat[id].mes||'');let hash=2166136261;for(const char of raw)hash=Math.imul(hash^char.codePointAt(0),16777619);
+ if(String(hash>>>0)!==b.version)throw Error('正文已变化，请重新选择剧情');
+ const options=branchOptions(raw);if(!Number.isInteger(b.index)||!options[b.index])throw Error('剧情选项不存在');
+ request={...request,text:options[b.index]};
+}
 const input = document.querySelector('#send_textarea');
 const send = document.querySelector('#send_but');
 if (!input || !send || send.disabled || send.getAttribute('aria-disabled') === 'true') throw new Error('酒馆发送按钮不可用');

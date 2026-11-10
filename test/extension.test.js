@@ -11,7 +11,7 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 test('native extension lifecycle, settings migration and fixed read adapter',async()=>{
  const server=http.createServer((req,res)=>{
   if(req.url==='/'){res.setHeader('Content-Type','text/html');return res.end('<div id="extensionsMenu"></div><textarea id="send_textarea"></textarea><button id="send_but"></button>');}
-  const name=req.url.slice(1);if(!['index.js','panel.js','read.js','send.js','voice.js'].includes(name)){res.writeHead(404);return res.end();}
+  const name=req.url.slice(1);if(!['index.js','panel.js','read.js','send.js','voice.js','branches.js'].includes(name)){res.writeHead(404);return res.end();}
   res.setHeader('Content-Type','application/javascript');res.end(fs.readFileSync(path.join(root,name)));
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
@@ -29,6 +29,24 @@ test('native extension lifecycle, settings migration and fixed read adapter',asy
   assert(heartbeats>0);
   assert.equal(await page.locator('#koko-url').inputValue(),'http://127.0.0.1:17864');
   assert.equal(await page.evaluate(async()=>(await import('/read.js')).read().text),'完整正文');
+  await page.evaluate(()=>{window.fixture={characterId:1,getCurrentChatId:()=> 'fixture',chat:[{mes:'<content>正文</content><branches><details><summary>下一杯</summary>\nA.续杯｜选项一\nB.换手｜选项二\n</details></branches>'}],streamingProcessor:{isFinished:true}};window.SillyTavern.getContext=()=>fixture;window.sent=0;document.querySelector('#send_but').onclick=()=>{sent++;fixture.chat.push({is_user:true,mes:document.querySelector('#send_textarea').value});};});
+  const result=await page.evaluate(async()=>{
+   const {read}=await import('/read.js'),{send}=await import('/send.js'),{branchOptions}=await import('/branches.js');const d=read();
+   if(d.branches.join(',')!=='A.续杯｜选项一,B.换手｜选项二'||d.text!=='正文')throw Error('Branch extraction failed');
+   if(branchOptions('<think><branches>A.假选项</branches></think>').length)throw Error('Reasoning leaked');
+   if(branchOptions('<branches>A.未闭合').length)throw Error('Incomplete branches leaked');
+   const req={binding:d.binding,branch:{messageId:d.messageId,version:d.voiceVersion,index:1}};
+   const rejects=fn=>{try{fn();return false}catch{return true}};
+   if(!rejects(()=>send({...req,branch:{...req.branch,version:'stale'}})))throw Error('Stale version accepted');
+   document.querySelector('#send_textarea').value='草稿';if(!rejects(()=>send(req)))throw Error('Draft overwritten');document.querySelector('#send_textarea').value='';
+   send(req);if(!rejects(()=>send(req)))throw Error('Repeated branch sent');return {count:sent,text:document.querySelector('#send_textarea').value};
+  });assert.deepEqual(result,{count:1,text:'B.换手｜选项二'});
+  assert.equal(await page.evaluate(async()=>{
+   fixture.chat=fixture.chat.slice(0,1);const f=document.createElement('iframe'),dialog=document.createElement('div');dialog.id='myphone-panel';dialog.append(f);document.body.append(dialog);
+   const state={narration:{enabled:true,voice:'role',skip:['status']}};let played=false;
+   window.__myPhoneAppPanelBridge={connect:()=>({status:()=>({phase:'idle'}),getState:()=>state,getSnapshot:()=>({state:structuredClone(state),revision:7}),save:(next,revision)=>{if(revision!==7)throw Error('Revision lost');state.narration=next.narration;},play:()=>{if(!state.narration.skip.includes('branches'))throw Error('Options would be narrated');played=true;}})};
+   const d=(await import('/read.js')).read();(await import('/voice.js')).voice({binding:d.binding,messageId:d.messageId,version:d.voiceVersion,action:'play'});return played&&state.narration.skip.includes('status');
+  }),true);
   await page.locator('.close').click();assert.equal(await page.locator('#koko-waker').isVisible(),false);
   await page.evaluate(()=>extension.disable());assert.equal(await page.locator('#koko-waker-menu').count(),0);assert.equal(await page.locator('#koko-waker').count(),0);
   await page.evaluate(()=>extension.enable());assert.equal(await page.locator('#koko-waker-menu').count(),1);

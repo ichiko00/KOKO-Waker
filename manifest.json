@@ -1,6 +1,6 @@
 {
   "display_name": "KOKO 唤醒器",
-  "version": "1.4.2",
+  "version": "1.5.0",
   "author": "ichiko00",
   "js": "index.js",
   "loading_order": 60,
