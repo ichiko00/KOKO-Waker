@@ -32,6 +32,12 @@ if (request.action === 'play') {
     const snapshot=api.getSnapshot();snapshot.state.narration.skip=[...(snapshot.state.narration.skip||[]),'branches'];api.save(snapshot.state,snapshot.revision);
   }
   api.play(id);
+ } else if (request.action === 'back' || request.action === 'forward') {
+  if(api.currentDialogue().id!==id)throw Error('小手机正在播放其他楼层');
+  if(!['playing','paused'].includes(status.phase))throw Error('请等待音频准备完成后再跳转');
+  const button=document.querySelector('.myphone-voice-island [data-vi="'+request.action+'"]');
+  if(!button||button.disabled)throw Error('当前音频尚不支持跳转，请等待缓冲，或开启小手机的朗读小窗');
+  button.click();
 } else if (request.action === 'toggle' || request.action === 'stop') {
   if (api.currentDialogue().id !== id) throw Error('小手机正在播放其他楼层，请在小手机控制');
   if (request.action === 'stop') api.stop();

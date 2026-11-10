@@ -14,6 +14,7 @@ const branches=streaming?[]:branchOptions(raw);
 let voiceHash=2166136261;for(const char of raw)voiceHash=Math.imul(voiceHash^char.codePointAt(0),16777619);
 let voice={available:false,phase:'idle',message:'小手机未启用或尚未完成加载，请在 TT 启用 MyPhone',id:-1};
 try {const frame=document.querySelector('#myphone-panel iframe');if(frame&&globalThis.__myPhoneAppPanelBridge){const api=globalThis.__myPhoneAppPanelBridge.connect(frame.contentWindow),s=api.status();voice={available:true,phase:s.phase,message:String(s.message||''),id:api.currentDialogue().id};}else if(globalThis.__myPhoneAppPanelBridge&&document.querySelector('#myphone-wand-entry, #myphone-open')){voice={available:true,phase:'idle',message:'点击播放将打开小手机并开始朗读',id:-1};}}catch(e){voice.message='小手机接口未就绪：'+e.message;}
+voice.canSeek=['playing','paused'].includes(voice.phase)&&['back','forward'].every(action=>{const b=document.querySelector('.myphone-voice-island [data-vi="'+action+'"]');return b&&!b.disabled;});
 // Do not show unfinished reasoning or execute generated HTML/scripts.
 raw = raw.replace(/<(think|thinking|analysis|blend)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '')
   .replace(/<!--[\s\S]*?(?:-->|$)/g, '');

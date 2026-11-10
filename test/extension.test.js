@@ -47,6 +47,13 @@ test('native extension lifecycle, settings migration and fixed read adapter',asy
    window.__myPhoneAppPanelBridge={connect:()=>({status:()=>({phase:'idle'}),getState:()=>state,getSnapshot:()=>({state:structuredClone(state),revision:7}),save:(next,revision)=>{if(revision!==7)throw Error('Revision lost');state.narration=next.narration;},play:()=>{if(!state.narration.skip.includes('branches'))throw Error('Options would be narrated');played=true;}})};
    const d=(await import('/read.js')).read();(await import('/voice.js')).voice({binding:d.binding,messageId:d.messageId,version:d.voiceVersion,action:'play'});return played&&state.narration.skip.includes('status');
   }),true);
+  assert.equal(await page.evaluate(async()=>{
+   let clicks=0;const island=document.createElement('div');island.className='myphone-voice-island';island.innerHTML='<button data-vi="back"></button><button data-vi="forward"></button>';island.querySelectorAll('button').forEach(b=>b.onclick=()=>clicks++);document.body.append(island);
+   window.__myPhoneAppPanelBridge={connect:()=>({status:()=>({phase:'playing'}),currentDialogue:()=>({id:0})})};
+   const {read}=await import('/read.js'),{voice}=await import('/voice.js');const d=read();if(!d.voice.canSeek)throw Error('Seek capability missing');
+   const req={binding:d.binding,messageId:0,version:d.voiceVersion};voice({...req,action:'back'});voice({...req,action:'forward'});
+   island.querySelector('[data-vi="back"]').disabled=true;if(read().voice.canSeek)throw Error('Disabled seek advertised');let blocked=false;try{voice({...req,action:'back'})}catch{blocked=true}return clicks===2&&blocked;
+  }),true);
   await page.locator('.close').click();assert.equal(await page.locator('#koko-waker').isVisible(),false);
   await page.evaluate(()=>extension.disable());assert.equal(await page.locator('#koko-waker-menu').count(),0);assert.equal(await page.locator('#koko-waker').count(),0);
   await page.evaluate(()=>extension.enable());assert.equal(await page.locator('#koko-waker-menu').count(),1);
