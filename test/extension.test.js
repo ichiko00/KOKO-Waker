@@ -54,6 +54,20 @@ test('native extension lifecycle, settings migration and fixed read adapter',asy
    const req={binding:d.binding,messageId:0,version:d.voiceVersion};voice({...req,action:'back'});voice({...req,action:'forward'});
    island.querySelector('[data-vi="back"]').disabled=true;if(read().voice.canSeek)throw Error('Disabled seek advertised');let blocked=false;try{voice({...req,action:'back'})}catch{blocked=true}return clicks===2&&blocked;
   }),true);
+  assert.equal(await page.evaluate(async()=>{
+   const {read}=await import('/read.js'),{voice}=await import('/voice.js');
+   let phase='paused',events=[];
+   window.__myPhoneAppPanelBridge={connect:()=>({status:()=>({phase}),currentDialogue:()=>({id:64}),stop:()=>{events.push('stop');phase='idle';},getState:()=>({narration:{enabled:true,voice:'role',skip:['branches']}}),play:id=>events.push('play:'+id)})};
+   const d=read(),req={binding:d.binding,messageId:d.messageId,version:d.voiceVersion};
+   voice({...req,action:'stop',messageId:999,version:'stale'});
+   if(events.join(',')!=='stop')throw Error('Older playback could not stop');
+   events=[];phase='paused';voice({...req,action:'play'});
+   if(events.join(',')!=='stop,play:0')throw Error('Paused playback did not switch');
+   events=[];phase='playing';let blocked=false;try{voice({...req,action:'play'})}catch{blocked=true}
+   if(!blocked||events.length)throw Error('Active playback was interrupted');
+   blocked=false;try{voice({...req,binding:'old-chat',action:'stop'})}catch{blocked=true}
+   return blocked&&events.length===0;
+  }),true);
   await page.locator('.close').click();assert.equal(await page.locator('#koko-waker').isVisible(),false);
   await page.evaluate(()=>extension.disable());assert.equal(await page.locator('#koko-waker-menu').count(),0);assert.equal(await page.locator('#koko-waker').count(),0);
   await page.evaluate(()=>extension.enable());assert.equal(await page.locator('#koko-waker-menu').count(),1);
