@@ -11,7 +11,7 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 test('native extension lifecycle, settings migration and fixed read adapter',async()=>{
  const server=http.createServer((req,res)=>{
   if(req.url==='/'){res.setHeader('Content-Type','text/html');return res.end('<div id="extensionsMenu"></div><textarea id="send_textarea"></textarea><button id="send_but"></button>');}
-  const name=req.url.slice(1);if(!['index.js','panel.js','read.js','send.js','voice.js','branches.js'].includes(name)){res.writeHead(404);return res.end();}
+  const name=req.url.slice(1);if(!['index.js','panel.js','read.js','send.js','voice.js','branches.js','generation.js'].includes(name)){res.writeHead(404);return res.end();}
   res.setHeader('Content-Type','application/javascript');res.end(fs.readFileSync(path.join(root,name)));
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
@@ -56,17 +56,34 @@ test('native extension lifecycle, settings migration and fixed read adapter',asy
   }),true);
   assert.equal(await page.evaluate(async()=>{
    const {read}=await import('/read.js'),{voice}=await import('/voice.js');
-   let phase='paused',events=[];
-   window.__myPhoneAppPanelBridge={connect:()=>({status:()=>({phase}),currentDialogue:()=>({id:64}),stop:()=>{events.push('stop');phase='idle';},getState:()=>({narration:{enabled:true,voice:'role',skip:['branches']}}),play:id=>events.push('play:'+id)})};
+   let phase='paused',events=[],voiceId=64;
+   window.__myPhoneAppPanelBridge={connect:()=>({status:()=>({phase}),currentDialogue:()=>({id:voiceId}),stop:()=>{events.push('stop');phase='idle';},getState:()=>({narration:{enabled:true,voice:'role',skip:['branches']}}),play:id=>events.push('play:'+id)})};
    const d=read(),req={binding:d.binding,messageId:d.messageId,version:d.voiceVersion};
    voice({...req,action:'stop',messageId:999,version:'stale'});
    if(events.join(',')!=='stop')throw Error('Older playback could not stop');
    events=[];phase='paused';voice({...req,action:'play'});
    if(events.join(',')!=='stop,play:0')throw Error('Paused playback did not switch');
-   events=[];phase='playing';let blocked=false;try{voice({...req,action:'play'})}catch{blocked=true}
+   events=[];phase='playing';voice({...req,action:'play'});if(events.join(',')!=='stop,play:0')throw Error('New reply could not replace older audio');
+   events=[];phase='playing';voiceId=0;let blocked=false;try{voice({...req,action:'play'})}catch{blocked=true}
    if(!blocked||events.length)throw Error('Active playback was interrupted');
    blocked=false;try{voice({...req,binding:'old-chat',action:'stop'})}catch{blocked=true}
    return blocked&&events.length===0;
+  }),true);
+  assert.equal(await page.evaluate(async()=>{
+   const {read}=await import('/read.js'),{send}=await import('/send.js'),{disposeGeneration}=await import('/generation.js');
+   const handlers=new Map();fixture.eventTypes={GENERATION_STARTED:'start',GENERATION_ENDED:'end',GENERATION_STOPPED:'stop',CHAT_CHANGED:'chat'};
+   fixture.eventSource={on:(name,fn)=>handlers.set(name,fn),removeListener:(name)=>handlers.delete(name)};
+   fixture.streamingProcessor={isFinished:true};read();handlers.get('start')('normal',{},false);
+   if(!read().generating||read().branches.length||read().text)throw Error('Pre-token/non-streaming generation not detected');
+   let blocked=false;try{send({binding:read().binding,text:'do not send'})}catch{blocked=true}if(!blocked)throw Error('Send allowed during non-streaming generation');
+   handlers.get('end')();if(read().generating||read().branches.length!==2)throw Error('Options not available immediately after completion');
+   handlers.get('start')('normal',{},false);fixture.streamingProcessor={isFinished:false};if(!read().generating)throw Error('Streaming lost');
+   handlers.get('stop')();if(read().generating)throw Error('Cancelled stream left loading stuck');
+   fixture.streamingProcessor={isFinished:true};fixture.chat.push({is_user:true,mes:'next'});if(read().branchEligible||read().branches.length)throw Error('Stale choices remained after send');fixture.chat.pop();
+   let stopped=0;window.__myPhoneAppPanelBridge={connect:()=>({stop:()=>stopped++})};
+   const d=read();document.querySelector('#send_textarea').value='';send({binding:d.binding,branch:{messageId:d.messageId,version:d.voiceVersion,index:0}});
+   if(stopped!==1)throw Error('Choosing next story did not stop old narration');
+   disposeGeneration();return handlers.size===0;
   }),true);
   await page.locator('.close').click();assert.equal(await page.locator('#koko-waker').isVisible(),false);
   await page.evaluate(()=>extension.disable());assert.equal(await page.locator('#koko-waker-menu').count(),0);assert.equal(await page.locator('#koko-waker').count(),0);

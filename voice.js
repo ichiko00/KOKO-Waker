@@ -1,3 +1,4 @@
+import {generationState} from './generation.js';
 export function voice(request={}){
 // Uses the existing MyPhone player and its configured voice API. Never reads API keys.
 
@@ -25,8 +26,8 @@ let hash = 2166136261;for (const char of String(message.mes || '')) hash = Math.
 if (String(hash >>> 0) !== request.version) throw Error('正文已变化，请等待同步');
 const running = ['playing','generating','paused','waiting'].includes(status.phase);
 if (request.action === 'play') {
-  if (c.streamingProcessor && !c.streamingProcessor.isFinished) throw Error('正文正在生成，请等待完成');
-  const replacePaused = status.phase === 'paused' && api.currentDialogue().id !== id;
+  if (generationState(c).generating) throw Error('正文正在生成，请等待完成');
+  const replacePaused = running && api.currentDialogue().id !== id;
   if (running && !replacePaused) throw Error('小手机已有播放任务，请先停止朗读');
   const settings = api.getState();
   if (!settings.narration?.enabled) throw Error('请在小手机设置中开启「整篇朗读」');
