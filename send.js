@@ -26,7 +26,7 @@ input.value = request.text;
 input.dispatchEvent(new Event('input', {bubbles: true}));
 send.click();
 // The explicit choice advances the story: stop old narration only after handing off the message.
-if(request.branch){try{const frame=document.querySelector('#myphone-panel iframe');if(frame&&globalThis.__myPhoneAppPanelBridge)globalThis.__myPhoneAppPanelBridge.connect(frame.contentWindow).stop();}catch{}}
+if(request.branch||request.stopNarration===true){try{const frame=document.querySelector('#myphone-panel iframe');if(frame&&globalThis.__myPhoneAppPanelBridge)globalThis.__myPhoneAppPanelBridge.connect(frame.contentWindow).stop();}catch{}}
 return {accepted: true};
 
 }
