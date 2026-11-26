@@ -82,7 +82,10 @@ test('native extension lifecycle, settings migration and fixed read adapter',asy
    fixture.streamingProcessor={isFinished:true};fixture.chat.push({is_user:true,mes:'next'});if(read().branchEligible||read().branches.length)throw Error('Stale choices remained after send');fixture.chat.pop();
    let stopped=0;window.__myPhoneAppPanelBridge={connect:()=>({stop:()=>stopped++})};
    const d=read();document.querySelector('#send_textarea').value='';send({binding:d.binding,branch:{messageId:d.messageId,version:d.voiceVersion,index:0}});
-   if(stopped!==1)throw Error('Choosing next story did not stop old narration');
+   if(stopped!==0)throw Error('Branch selection interrupted narration');
+   document.querySelector('#send_textarea').value='';
+   send({binding:d.binding,text:'自定义剧情',stopNarration:true});
+   if(stopped!==0)throw Error('Legacy custom reply interrupted narration');
    disposeGeneration();return handlers.size===0;
   }),true);
   await page.locator('.close').click();assert.equal(await page.locator('#koko-waker').isVisible(),false);
